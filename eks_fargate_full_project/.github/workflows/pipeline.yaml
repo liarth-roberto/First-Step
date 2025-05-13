@@ -29,7 +29,7 @@ jobs:
         run: docker pull checkmarx/kics:latest
 
       - name: Executando o KICS Scan
-        working-directory: ./First-Step/
+        working-directory: ./eks_fargate_full_project/
         run: docker run -v $(pwd):/path -i checkmarx/kics:latest scan -p "/path"
         continue-on-error: true
 
@@ -61,15 +61,15 @@ jobs:
 
       #executando os comandos do terraform
       - name: Terraform Init
-        working-directory: ./First-Step/
+        working-directory: ./eks_fargate_full_project/
         run: terraform init
 
       - name: Terraform Validate
-        working-directory: ./First-Step/
+        working-directory: ./eks_fargate_full_project/
         run: terraform validate
 
       - name: Terraform Plan
-        working-directory: ./First-Step/
+        working-directory: ./eks_fargate_full_project/
         run: terraform plan
 
   Apply:
@@ -97,10 +97,10 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Terraform Init
-        working-directory: ./First-Step/
+        working-directory: ./eks_fargate_full_project/
         run: terraform init
 
       - name: Terraform Apply
-        working-directory: ./First-Step/
+        working-directory: ./eks_fargate_full_project/
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve -input=false
