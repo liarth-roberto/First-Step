@@ -1,0 +1,106 @@
+name: 'Pipeline Terraform'
+
+#quando o evento for um push ou pull_request, o pipeline será executado
+on:
+  push:
+  pull_request:
+
+#variáveis de ambiente
+#env:
+  #AWS_REGION: ${{ vars.AWS_REGION }}
+  
+permissions:
+  contents: read
+
+#passos do pipeline
+jobs:
+  scan:
+    name: KICS Scan
+    #onde a pipeline será executada
+    runs-on: ubuntu-latest
+    #o que será executado
+    steps:
+      #pra onde a pipepline irá executar os comandos
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      #baixando a imagem do KICS e analisando o código
+      - name: Baixando imagem do KICS
+        run: docker pull checkmarx/kics:latest
+
+      - name: Executando o KICS Scan
+        working-directory: ./First-Step/
+        run: docker run -v $(pwd):/path -i checkmarx/kics:latest scan -p "/path"
+        continue-on-error: true
+
+  # Terraform plan
+  Plan:
+    name: terraform-plan
+    runs-on: ubuntu-latest
+    #environment: production
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      #instalando o terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      #configurando as credenciais da AWS-CLI e configurar 
+      - name: Configurando AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      #executando os comandos do terraform
+      - name: Terraform Init
+        working-directory: ./First-Step/
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ./First-Step/
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: ./First-Step/
+        run: terraform plan
+
+  Apply:
+    name: terraform-apply
+    needs: Plan
+    runs-on: ubuntu-latest
+    #environment: production
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Configurando AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ./First-Step/
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: ./First-Step/
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve -input=false
